@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const webhook = await tg('setWebhook', {
       url: `${url}/api/webhook`,
       secret_token: webhookSecret(),
-      allowed_updates: ['message'],
+      allowed_updates: ['message', 'my_chat_member'],
       drop_pending_updates: true,
     });
     const commands = await tg('setMyCommands', {

@@ -1,4 +1,4 @@
-import { tg, tgMultipart, authenticate, isAllowed } from '../lib/telegram.js';
+import { tg, tgMultipart, authenticate, isAllowed, resolveDestination } from '../lib/telegram.js';
 
 const MEDIA_TYPES = new Set(['photo', 'video', 'animation', 'audio', 'voice_note', 'document']);
 const MAX_TEXT = 32768;
@@ -44,8 +44,25 @@ export default async function handler(req, res) {
     }
   }
 
+  // По умолчанию — в личку. Для канала/группы права проверяются при каждой отправке.
+  let chatId = user.id;
+  if (body.chatId != null && String(body.chatId) !== String(user.id)) {
+    try {
+      const dest = await resolveDestination(user.id, body.chatId);
+      if (!dest.ok) {
+        res.status(403).json({ ok: false, error: dest.error });
+        return;
+      }
+      chatId = dest.chat.id;
+    } catch (err) {
+      console.error('destination error', err);
+      res.status(502).json({ ok: false, error: 'Не удалось связаться с Telegram.' });
+      return;
+    }
+  }
+
   const params = {
-    chat_id: user.id,
+    chat_id: chatId,
     disable_notification: Boolean(body.silent),
   };
 

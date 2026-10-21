@@ -39,13 +39,15 @@
   }
 
   // ---------- auth ----------
+  let pendingAddChat = null;
+
   function initAuth() {
     const hash = new URLSearchParams(location.hash.slice(1));
+    const query = new URLSearchParams(location.search);
     const fromHash = hash.get('token');
-    if (fromHash) {
-      store.set(TOKEN_KEY, fromHash);
-      history.replaceState(null, '', location.pathname + location.search);
-    }
+    if (fromHash) store.set(TOKEN_KEY, fromHash);
+    pendingAddChat = hash.get('add_chat') || query.get('add_chat');
+    if (location.hash || query.has('add_chat')) history.replaceState(null, '', location.pathname);
     if (tgApp?.initData) state.auth = { initData: tgApp.initData };
     else if (store.get(TOKEN_KEY)) state.auth = { token: store.get(TOKEN_KEY) };
 
@@ -58,7 +60,9 @@
       .then((data) => {
         if (data.ok) {
           const u = data.user;
-          $('#recipient').textContent = `Пост придёт: ${u.first_name || (u.username ? '@' + u.username : 'id ' + u.id)}`;
+          const who = u.first_name || (u.username ? '@' + u.username : '');
+          $('#dest option[value="me"]').textContent = who ? `Мне в личку (${who})` : 'Мне в личку';
+          addChatFromLink();
         } else {
           showBanner('Ссылка для входа недействительна. Отправьте боту /link, чтобы получить новую.');
         }
@@ -709,6 +713,104 @@ print("Привет, Telegram!")
     onInput();
   }
 
+  // ---------- destinations (каналы и группы) ----------
+  // Список хранится в браузере и, внутри Telegram, в CloudStorage бота — чтобы был виден на всех устройствах.
+  const DESTS_KEY = 'rp_dests';
+  const cloud = tgApp?.initData && tgApp.isVersionAtLeast?.('6.9') ? tgApp.CloudStorage : null;
+  state.dests = [];
+
+  function loadDests() {
+    try { state.dests = JSON.parse(store.get(DESTS_KEY) || '[]'); } catch { state.dests = []; }
+    renderDests();
+    cloud?.getItem(DESTS_KEY, (err, value) => {
+      if (err || !value) return;
+      try {
+        for (const d of JSON.parse(value)) {
+          if (!state.dests.some((x) => String(x.id) === String(d.id))) state.dests.push(d);
+        }
+        renderDests();
+      } catch { /* битые данные */ }
+    });
+  }
+
+  function saveDests() {
+    const json = JSON.stringify(state.dests);
+    store.set(DESTS_KEY, json);
+    cloud?.setItem(DESTS_KEY, json);
+    renderDests();
+  }
+
+  const destLabel = (d) => `${d.type === 'channel' ? '📢' : '👥'} ${d.title}`;
+
+  function renderDests() {
+    const sel = $('#dest');
+    const current = sel.value;
+    sel.querySelectorAll('option:not([value="me"])').forEach((o) => o.remove());
+    for (const d of state.dests) {
+      sel.appendChild(Object.assign(document.createElement('option'), { value: String(d.id), textContent: destLabel(d) }));
+    }
+    sel.value = state.dests.some((d) => String(d.id) === current) ? current : 'me';
+    updateSendLabel();
+
+    const list = $('#destList');
+    list.innerHTML = '';
+    for (const d of state.dests) {
+      const row = document.createElement('div');
+      row.className = 'dest-row';
+      const name = Object.assign(document.createElement('span'), { className: 'name', textContent: destLabel(d) });
+      const meta = Object.assign(document.createElement('small'), { textContent: d.username ? '@' + d.username : String(d.id) });
+      const del = Object.assign(document.createElement('button'), { type: 'button', textContent: '✕', title: 'Убрать из списка' });
+      del.addEventListener('click', () => {
+        state.dests = state.dests.filter((x) => x !== d);
+        saveDests();
+      });
+      row.append(name, meta, del);
+      list.appendChild(row);
+    }
+  }
+
+  function updateSendLabel() {
+    const btn = $('#sendBtn');
+    if (!btn.disabled) btn.textContent = $('#dest').value === 'me' ? 'Отправить мне' : 'Опубликовать';
+  }
+
+  async function addDest(ref) {
+    if (!state.auth) {
+      toast('Сначала откройте редактор из бота.', true);
+      return false;
+    }
+    const res = await fetch('/api/chats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth: state.auth, chat: ref }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!data.ok) {
+      toast(data.error || 'Не удалось добавить чат.', true);
+      return false;
+    }
+    state.dests = state.dests.filter((x) => String(x.id) !== String(data.chat.id));
+    state.dests.push(data.chat);
+    saveDests();
+    $('#dest').value = String(data.chat.id);
+    updateSendLabel();
+    toast(`Добавлено: ${data.chat.title}`);
+    return true;
+  }
+
+  function addChatFromLink() {
+    if (!pendingAddChat) return;
+    const ref = pendingAddChat;
+    pendingAddChat = null;
+    const known = state.dests.find((d) => String(d.id) === String(ref));
+    if (known) {
+      $('#dest').value = String(known.id);
+      updateSendLabel();
+    } else {
+      addDest(ref);
+    }
+  }
+
   // ---------- send ----------
   async function send() {
     if (!state.auth) {
@@ -733,6 +835,10 @@ print("Привет, Telegram!")
       return;
     }
 
+    const destId = $('#dest').value;
+    const dest = state.dests.find((d) => String(d.id) === destId);
+    if (dest && !(await askConfirm(`Опубликовать пост в «${dest.title}»? Его сразу увидят ${dest.type === 'channel' ? 'подписчики' : 'участники'}.`))) return;
+
     const btn = $('#sendBtn');
     btn.disabled = true;
     btn.textContent = 'Отправка…';
@@ -747,6 +853,7 @@ print("Привет, Telegram!")
           auth: state.auth,
           format: state.format,
           text,
+          chatId: dest ? dest.id : undefined,
           files,
           silent: $('#silent').checked,
           skipEntityDetection: $('#skipEntities').checked,
@@ -754,7 +861,7 @@ print("Привет, Telegram!")
       });
       const data = res.status === 413 ? { error: 'Слишком большой запрос — уменьшите размер файлов.' } : await res.json().catch(() => ({}));
       if (data.ok) {
-        toast('✅ Отправлено! Откройте чат с ботом и перешлите пост.');
+        toast(dest ? `✅ Опубликовано в «${dest.title}»` : '✅ Отправлено! Пост в чате с ботом.');
         tgApp?.HapticFeedback?.notificationOccurred('success');
       } else {
         toast(`Ошибка: ${data.error || res.statusText}`, true);
@@ -764,7 +871,7 @@ print("Привет, Telegram!")
       toast(`Ошибка сети: ${err.message}`, true);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Отправить в Telegram';
+      updateSendLabel();
     }
   }
 
@@ -822,7 +929,23 @@ print("Привет, Telegram!")
       if (b.dataset.pane === 'preview') renderPreview();
     }));
     $('#sendBtn').addEventListener('click', send);
+    $('#dest').addEventListener('change', updateSendLabel);
+    $('#destBtn').addEventListener('click', () => $('#destDialog').showModal());
+    $('#destDialog [data-close]').addEventListener('click', () => $('#destDialog').close());
+    $('#destDialog').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+    $('#destForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = $('#destInput');
+      const submit = e.currentTarget.querySelector('button');
+      submit.disabled = true;
+      try {
+        if (await addDest(input.value)) input.value = '';
+      } finally {
+        submit.disabled = false;
+      }
+    });
 
+    loadDests();
     initAuth();
     renderPreview();
   }

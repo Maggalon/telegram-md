@@ -58,9 +58,32 @@
     <label class="check"><input type="checkbox" id="silent" /> Без звука</label>
     <label class="check"><input type="checkbox" id="skipEntities" /> Не распознавать ссылки и @упоминания</label>
     <div class="spacer"></div>
-    <span id="recipient" class="recipient"></span>
+    <div class="dest">
+      <label for="dest" class="recipient">Куда:</label>
+      <select id="dest" aria-label="Куда отправить">
+        <option value="me">Мне в личку</option>
+      </select>
+      <button type="button" id="destBtn" class="ghost" title="Каналы и группы">⚙︎</button>
+    </div>
     <button type="button" id="sendBtn" class="primary">Отправить в Telegram</button>
   </footer>
+
+  <dialog id="destDialog">
+    <div class="dialog-head">
+      <h2>Каналы и группы</h2>
+      <button type="button" class="ghost" data-close>✕</button>
+    </div>
+    <ol class="steps muted">
+      <li>Добавьте бота в канал администратором с правом «Публикация сообщений» (в группу — обычным участником).</li>
+      <li>Введите @username канала или его id. Для приватного канала перешлите боту любой пост оттуда — он пришлёт id.</li>
+    </ol>
+    <form id="destForm" class="dest-form">
+      <input id="destInput" type="text" placeholder="@mychannel или -1001234567890" autocomplete="off" required />
+      <button type="submit" class="primary">Добавить</button>
+    </form>
+    <div id="destList" class="dest-list"></div>
+    <p class="muted">Пост в канале выходит от имени канала, без пометки о боте. Права проверяются при каждой отправке.</p>
+  </dialog>
 
   <dialog id="cheatsheet">
     <div class="dialog-head">
