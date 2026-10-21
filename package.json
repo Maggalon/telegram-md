@@ -1,0 +1,13 @@
+{
+  "name": "telegram-rich-post",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Веб-редактор rich-постов Telegram (Markdown/HTML) + бот на вебхуках для Vercel",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}

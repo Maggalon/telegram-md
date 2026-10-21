@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Rich Post Editor</title>
+  <meta name="description" content="Редактор постов Telegram с расширенной разметкой: заголовки, таблицы, списки, формулы, медиа." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✍️</text></svg>" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">✍️ <span>Rich Post</span></div>
+    <div class="seg" role="tablist" aria-label="Формат">
+      <button type="button" data-format="markdown" class="active">Markdown</button>
+      <button type="button" data-format="html">HTML</button>
+    </div>
+    <div class="spacer"></div>
+    <select id="templates" aria-label="Шаблоны">
+      <option value="">Шаблоны…</option>
+      <option value="showcase">Демо всех возможностей</option>
+      <option value="announce">Анонс</option>
+      <option value="report">Отчёт с таблицей</option>
+      <option value="faq">FAQ со спойлерами</option>
+    </select>
+    <button type="button" id="cheatBtn" class="ghost">Шпаргалка</button>
+  </header>
+
+  <div id="authBanner" class="banner" hidden></div>
+
+  <div class="toolbar" id="toolbar"></div>
+
+  <div class="mobile-tabs">
+    <button type="button" data-pane="editor" class="active">Редактор</button>
+    <button type="button" data-pane="preview">Превью</button>
+  </div>
+
+  <main class="workspace" id="workspace" data-pane="editor">
+    <section class="pane editor-pane">
+      <textarea id="editor" spellcheck="true" placeholder="Напишите пост…"></textarea>
+      <div id="attachments" class="attachments" hidden></div>
+    </section>
+    <section class="pane preview-pane">
+      <div class="chat-bg">
+        <article class="bubble" id="preview"></article>
+      </div>
+      <p class="note">Превью приблизительное — финальный вид определяет клиент Telegram.</p>
+    </section>
+  </main>
+
+  <footer class="bottombar">
+    <span id="counter" class="counter">0 / 32768</span>
+    <label class="check"><input type="checkbox" id="silent" /> Без звука</label>
+    <label class="check"><input type="checkbox" id="skipEntities" /> Не распознавать ссылки и @упоминания</label>
+    <div class="spacer"></div>
+    <span id="recipient" class="recipient"></span>
+    <button type="button" id="sendBtn" class="primary">Отправить в Telegram</button>
+  </footer>
+
+  <dialog id="cheatsheet">
+    <div class="dialog-head">
+      <h2>Шпаргалка</h2>
+      <button type="button" class="ghost" data-close>✕</button>
+    </div>
+    <p class="muted">Нажмите на пример, чтобы вставить его в пост.</p>
+    <div id="cheatList" class="cheat-list"></div>
+  </dialog>
+
+  <input type="file" id="fileInput" multiple hidden accept="image/*,video/*,audio/*,.pdf,.zip,.doc,.docx,.txt" />
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
