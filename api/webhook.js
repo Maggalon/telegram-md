@@ -1,5 +1,8 @@
 import { tg, appUrl, webhookSecret, makeLinkToken, isAllowed } from '../lib/telegram.js';
 
+// Открывает выбор канала и добавляет бота администратором с правом публикации и редактирования.
+const ADD_TO_CHANNEL_URL = 'https://t.me/markdown_converter_app?startchannel&admin=post_messages+edit_messages';
+
 const HELP = [
   '<b>Как пользоваться</b>',
   '',
@@ -82,7 +85,12 @@ async function handleMessage(req, msg) {
         chat_id: chatId,
         parse_mode: 'HTML',
         text: `Привет, ${escapeHtml(msg.from.first_name || 'друг')}! Здесь можно собрать пост с расширенной разметкой: заголовки, таблицы, списки, сноски, формулы и медиа.\n\n${HELP}`,
-        reply_markup: keyboard(req, msg.from.id),
+        reply_markup: {
+          inline_keyboard: [
+            ...keyboard(req, msg.from.id).inline_keyboard,
+            [{ text: '➕ Добавить в канал', url: ADD_TO_CHANNEL_URL }],
+          ],
+        },
       });
       break;
     case '/link':
